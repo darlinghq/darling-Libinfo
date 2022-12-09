@@ -960,11 +960,7 @@ si_module_static_search(void)
 #ifdef DS_AVAILABLE
 			"ds",
 #endif
-#ifdef DARLING
-			"darling-resolver",
-#else
 			"mdns",
-#endif
 			"file",
 		};
 

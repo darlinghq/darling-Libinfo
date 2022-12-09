@@ -108,7 +108,6 @@ si_inet_config(uint32_t *inet4, uint32_t *inet6)
 
 	checkit = 1;
 
-#ifndef DARLING
 	if (net_config_token < 0)
 	{
 		status = notify_register_check(kNotifySCNetworkChange, &net_config_token);
@@ -120,7 +119,6 @@ si_inet_config(uint32_t *inet4, uint32_t *inet6)
 		status = notify_check(net_config_token, &checkit);
 		if (status != 0) checkit = 1;
 	}
-#endif
 
 	status = 0;
 
@@ -1129,10 +1127,10 @@ static int _gai_nat64_v4_synthesize(uint32_t *index, const struct in_addr *ipv4,
 	if (nat64_v4_synthesize == NULL) {
 		return 0;
 	}
-	int result = nat64_v4_synthesize(index, ipv4, out_ipv6_addrs);
+	const int result = nat64_v4_synthesize(index, ipv4, out_ipv6_addrs);
 	os_log_debug(gai_log(), "nat64_v4_synthesize(%d, %{network:in_addr}d, ...) returned %d", index != NULL ? *index : 0,
 				 ipv4->s_addr, result);
-	return nat64_v4_synthesize(index, ipv4, out_ipv6_addrs);
+	return result;
 }
 
 LIBINFO_EXPORT
