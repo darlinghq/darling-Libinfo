@@ -21,6 +21,7 @@
 #include <resolv.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <time.h>
 
 static int
 dr_is_valid(si_mod_t *si, si_item_t *item)
