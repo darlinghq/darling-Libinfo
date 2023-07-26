@@ -1,6 +1,6 @@
 project(libinfo-dns)
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../libc/locale)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../libc/locale/FreeBSD)
