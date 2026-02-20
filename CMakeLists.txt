@@ -66,6 +66,10 @@ add_circular(system_info FAT
 		compiler_rt
 		launch
 		system_trace
+
+		# On macOS, this dependency is not included in `libsystem_info`. However,
+		# due to a Darling specific change (see `darling-resolver/resolver.c`), we
+		# will need to include `libresolv` as a circular dependency to this library.
 		resolv-darwin
 )
 
