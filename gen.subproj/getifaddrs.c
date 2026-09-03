@@ -91,11 +91,16 @@
 #define MEMORY_MIN 2048
 #define MEMORY_MAX 16777216
 
+extern void __simple_kprintf(const char* format, ...);
+#define darling_kprintf __simple_kprintf
+
 LIBINFO_EXPORT
 int
 getifaddrs(struct ifaddrs **pif)
 {
 	int icnt = 1;
+
+	darling_kprintf("getifaddrs: ENTER\n");
 	int dcnt = 0;
 	int ncnt = 0;
 	struct ifaddrs *ifa, *ift;
@@ -133,7 +138,9 @@ getifaddrs(struct ifaddrs **pif)
 	mib[3] = 0;             /* wildcard address family */
 	mib[4] = NET_RT_IFLIST;
 	mib[5] = 0;             /* no flags */
-	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) return (-1);
+	darling_kprintf("getifaddrs: before first sysctl\n");
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) { darling_kprintf("getifaddrs: first sysctl failed, returning -1\n"); return (-1); }
+	darling_kprintf("getifaddrs: first sysctl OK needed=%zu\n", needed);
 
 	if (needed < MEMORY_MIN) needed = MEMORY_MIN;
 	needed *= 2;
@@ -147,7 +154,8 @@ getifaddrs(struct ifaddrs **pif)
 		if (buf == NULL) return (-1);
 
 		status = sysctl(mib, 6, buf, &needed, NULL, 0);
-		if (status >= 0) break;
+		if (status >= 0) { darling_kprintf("getifaddrs: second sysctl OK needed=%zu\n", needed); break; }
+		darling_kprintf("getifaddrs: second sysctl failed, doubling needed=%zu\n", needed);
 
 		free(buf);
 		buf = NULL;
@@ -157,11 +165,17 @@ getifaddrs(struct ifaddrs **pif)
 	if (buf == NULL)
 	{
 		errno = ENOBUFS;
+		darling_kprintf("getifaddrs: buf==NULL, ENOBUFS\n");
 		return (-1);
 	}
+	darling_kprintf("getifaddrs: parsing %zu bytes\n", needed);
 
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
 		rtm = (struct rt_msghdr *)next;
+		if (rtm->rtm_msglen < sizeof(struct rt_msghdr) || next + rtm->rtm_msglen > buf + needed) {
+			darling_kprintf("getifaddrs: bad rtm_msglen=%u at offset %ld, stopping\n", rtm->rtm_msglen, (long)(next - buf));
+			break;
+		}
 		if (rtm->rtm_version != RTM_VERSION)
 			continue;
 		switch (rtm->rtm_type) {
@@ -184,7 +198,7 @@ getifaddrs(struct ifaddrs **pif)
 		case RTM_NEWADDR:
 			ifam = (struct ifa_msghdr *)rtm;
 			if (index && ifam->ifam_index != index)
-				abort();	/* this cannot happen */
+				continue;
 
 #define	RTA_MASKS	(RTA_NETMASK | RTA_IFA | RTA_BRD)
 			if (index == 0 || (ifam->ifam_addrs & RTA_MASKS) == 0)
@@ -276,6 +290,10 @@ getifaddrs(struct ifaddrs **pif)
 	index = 0;
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
 		rtm = (struct rt_msghdr *)next;
+		if (rtm->rtm_msglen < sizeof(struct rt_msghdr) || next + rtm->rtm_msglen > buf + needed) {
+			darling_kprintf("getifaddrs: bad rtm_msglen=%u at offset %ld, stopping\n", rtm->rtm_msglen, (long)(next - buf));
+			break;
+		}
 		if (rtm->rtm_version != RTM_VERSION)
 			continue;
 		switch (rtm->rtm_type) {
@@ -313,7 +331,7 @@ getifaddrs(struct ifaddrs **pif)
 		case RTM_NEWADDR:
 			ifam = (struct ifa_msghdr *)rtm;
 			if (index && ifam->ifam_index != index)
-				abort();	/* this cannot happen */
+				continue;
 
 			if (index == 0 || (ifam->ifam_addrs & RTA_MASKS) == 0)
 				break;
