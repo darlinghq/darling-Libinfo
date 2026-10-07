@@ -171,8 +171,17 @@ getifaddrs(struct ifaddrs **pif)
 	darling_kprintf("getifaddrs: parsing %zu bytes\n", needed);
 
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
+		/* All route messages share only length, version, and type. Address
+		 * messages are smaller than struct rt_msghdr and must not be rejected. */
+		if ((size_t)(buf + needed - next) < 4)
+			break;
 		rtm = (struct rt_msghdr *)next;
-		if (rtm->rtm_msglen < sizeof(struct rt_msghdr) || next + rtm->rtm_msglen > buf + needed) {
+		size_t header_size = 4;
+		if (rtm->rtm_type == RTM_IFINFO)
+			header_size = sizeof(struct if_msghdr);
+		else if (rtm->rtm_type == RTM_NEWADDR)
+			header_size = sizeof(struct ifa_msghdr);
+		if (rtm->rtm_msglen < header_size || rtm->rtm_msglen > (size_t)(buf + needed - next)) {
 			darling_kprintf("getifaddrs: bad rtm_msglen=%u at offset %ld, stopping\n", rtm->rtm_msglen, (long)(next - buf));
 			break;
 		}
@@ -289,8 +298,17 @@ getifaddrs(struct ifaddrs **pif)
 #ifdef	NET_RT_IFLIST
 	index = 0;
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
+		/* All route messages share only length, version, and type. Address
+		 * messages are smaller than struct rt_msghdr and must not be rejected. */
+		if ((size_t)(buf + needed - next) < 4)
+			break;
 		rtm = (struct rt_msghdr *)next;
-		if (rtm->rtm_msglen < sizeof(struct rt_msghdr) || next + rtm->rtm_msglen > buf + needed) {
+		size_t header_size = 4;
+		if (rtm->rtm_type == RTM_IFINFO)
+			header_size = sizeof(struct if_msghdr);
+		else if (rtm->rtm_type == RTM_NEWADDR)
+			header_size = sizeof(struct ifa_msghdr);
+		if (rtm->rtm_msglen < header_size || rtm->rtm_msglen > (size_t)(buf + needed - next)) {
 			darling_kprintf("getifaddrs: bad rtm_msglen=%u at offset %ld, stopping\n", rtm->rtm_msglen, (long)(next - buf));
 			break;
 		}
