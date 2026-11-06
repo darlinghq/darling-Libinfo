@@ -22,6 +22,24 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <time.h>
+#include <string.h>
+
+// One DNS query with resolver state of its own. res_query keeps a single state for the whole process, so
+// lookups running at the same time on different threads (libcurl's threaded resolver starts several)
+// overwrote each other's and nearly all of them failed.
+static int
+dr_query(const char *name, int class, int type, u_char *answer, int anslen)
+{
+	struct __res_state state;
+	int l;
+
+	memset(&state, 0, sizeof(state));
+	if (res_ninit(&state) != 0)
+		return -1;
+	l = res_nquery(&state, name, class, type, answer, anslen);
+	res_ndestroy(&state);
+	return l;
+}
 
 static int
 dr_is_valid(si_mod_t *si, si_item_t *item)
@@ -58,7 +76,7 @@ dr_hostbyname(si_mod_t *si, const char *name, int af, const char *interface, uin
 	else
 		return NULL;
 
-	l = res_query(name, ns_c_in, type, buf, sizeof(buf));
+	l = dr_query(name, ns_c_in, type, buf, sizeof(buf));
 	if (l < 0)
 		return NULL;
 
@@ -144,7 +162,7 @@ dr_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, uin
 	else
 		return NULL;
 
-	l = res_query(ptr, ns_c_in, ns_t_ptr, buf, sizeof(buf));
+	l = dr_query(ptr, ns_c_in, ns_t_ptr, buf, sizeof(buf));
 	if (l < 0)
 		return NULL;
 
@@ -240,7 +258,7 @@ dr_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 		
 		if (resolveV6)
 		{
-			l = res_query((const char*) node, ns_c_in, ns_t_aaaa, buf, sizeof(buf));
+			l = dr_query((const char*) node, ns_c_in, ns_t_aaaa, buf, sizeof(buf));
 			if (l < 0)
 				goto after_v6;
 
@@ -279,7 +297,7 @@ dr_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 after_v6:
 		if (resolveV4)
 		{
-			l = res_query((const char*) node, ns_c_in, ns_t_a, buf, sizeof(buf));
+			l = dr_query((const char*) node, ns_c_in, ns_t_a, buf, sizeof(buf));
 			if (l < 0)
 				goto after_v4;
 
