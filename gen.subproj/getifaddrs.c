@@ -161,7 +161,18 @@ getifaddrs(struct ifaddrs **pif)
 	}
 
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
+		/* All route messages share only length, version, and type. Address
+		 * messages are smaller than struct rt_msghdr and must not be rejected. */
+		if ((size_t)(buf + needed - next) < 4)
+			break;
 		rtm = (struct rt_msghdr *)next;
+		size_t header_size = 4;
+		if (rtm->rtm_type == RTM_IFINFO)
+			header_size = sizeof(struct if_msghdr);
+		else if (rtm->rtm_type == RTM_NEWADDR)
+			header_size = sizeof(struct ifa_msghdr);
+		if (rtm->rtm_msglen < header_size || rtm->rtm_msglen > (size_t)(buf + needed - next))
+			break;
 		if (rtm->rtm_version != RTM_VERSION)
 			continue;
 		switch (rtm->rtm_type) {
@@ -184,7 +195,7 @@ getifaddrs(struct ifaddrs **pif)
 		case RTM_NEWADDR:
 			ifam = (struct ifa_msghdr *)rtm;
 			if (index && ifam->ifam_index != index)
-				abort();	/* this cannot happen */
+				continue;
 
 #define	RTA_MASKS	(RTA_NETMASK | RTA_IFA | RTA_BRD)
 			if (index == 0 || (ifam->ifam_addrs & RTA_MASKS) == 0)
@@ -275,7 +286,18 @@ getifaddrs(struct ifaddrs **pif)
 #ifdef	NET_RT_IFLIST
 	index = 0;
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
+		/* All route messages share only length, version, and type. Address
+		 * messages are smaller than struct rt_msghdr and must not be rejected. */
+		if ((size_t)(buf + needed - next) < 4)
+			break;
 		rtm = (struct rt_msghdr *)next;
+		size_t header_size = 4;
+		if (rtm->rtm_type == RTM_IFINFO)
+			header_size = sizeof(struct if_msghdr);
+		else if (rtm->rtm_type == RTM_NEWADDR)
+			header_size = sizeof(struct ifa_msghdr);
+		if (rtm->rtm_msglen < header_size || rtm->rtm_msglen > (size_t)(buf + needed - next))
+			break;
 		if (rtm->rtm_version != RTM_VERSION)
 			continue;
 		switch (rtm->rtm_type) {
@@ -313,7 +335,7 @@ getifaddrs(struct ifaddrs **pif)
 		case RTM_NEWADDR:
 			ifam = (struct ifa_msghdr *)rtm;
 			if (index && ifam->ifam_index != index)
-				abort();	/* this cannot happen */
+				continue;
 
 			if (index == 0 || (ifam->ifam_addrs & RTA_MASKS) == 0)
 				break;
