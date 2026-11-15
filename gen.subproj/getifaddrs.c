@@ -141,17 +141,22 @@ getifaddrs(struct ifaddrs **pif)
 
 	buf = NULL;
 
-	while (needed <= MEMORY_MAX)
+	/* Darling: the size asked for is kept apart from `needed`, which a failed
+	 * sysctl may set to anything: when it set it smaller, this doubled the
+	 * same small size forever (launchd spun here on Android). And only a
+	 * buffer that is too small is worth another try. */
+	for (size_t want = needed; want <= MEMORY_MAX; want *= 2)
 	{
-		buf = malloc(needed);
+		buf = malloc(want);
 		if (buf == NULL) return (-1);
 
+		needed = want;
 		status = sysctl(mib, 6, buf, &needed, NULL, 0);
 		if (status >= 0) break;
 
 		free(buf);
 		buf = NULL;
-		needed *= 2;
+		if (errno != ENOMEM) return (-1);
 	}
 
 	if (buf == NULL)
